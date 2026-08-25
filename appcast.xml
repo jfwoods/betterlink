@@ -1,0 +1,58 @@
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>Betterlink</title>
+        <link>https://jfwoods.github.io/betterlink/appcast.xml</link>
+        <description>Betterlink auto-update feed</description>
+        <language>en</language>
+        <item>
+        <title>Version 0.1.0</title>
+        <description><![CDATA[<h2>What's Changed</h2>
+<ul>
+<li>Document Settings, and cut the 0.1.0 release notes</li>
+<li>Stop a preset restore when the camera stops answering, not only when it is gone</li>
+<li>Give USB control transfers a timeout</li>
+<li>Reopen the last-used pane by default</li>
+<li>Write the README and capture its screenshots</li>
+<li>Record the Settings pane, preset transfer, and the signing change</li>
+<li>Let an imported default fill an empty apply-on-connect slot</li>
+<li>Build the Settings pane</li>
+<li>Add an interchange format for moving presets between machines</li>
+<li>Drop the example name from the preset-name field</li>
+<li>Add the shared preference keys and sign local builds with the Developer ID</li>
+<li>Remove the certificate signing request from the repository</li>
+<li>Correct the ordering of the GitHub Pages setup step</li>
+<li>Set the Sparkle EdDSA public key and enable automatic update checks</li>
+<li>Correct the changelog's account of where the icon source lives</li>
+<li>Rename the app to Betterlink</li>
+<li>Regenerate the app icon PNG set</li>
+<li>logo</li>
+<li>Add a portrait/landscape stream toggle</li>
+<li>Make video-mode apply stick, and document both cleared debts</li>
+<li>Video Mode picker drives AVFoundation's activeFormat</li>
+<li>Share one UVCTransport between Dashboard and presets</li>
+<li>Fix gimbal tilt and preset position restore</li>
+<li>Phase 2: Dashboard camera controls (PTZ, zoom, image, video mode)</li>
+<li>Phase 2: unified preset system (model, store, capture/restore, Menu + Builder panes)</li>
+<li>Phase 2: host-side recording start/stop on the viewfinder</li>
+<li>Disable Sparkle automatic update checks until the appcast feed is real</li>
+<li>Fix viewfinder dying after navigating away from Dashboard</li>
+<li>Phase 1 Track A: USB/UVC transport layer</li>
+<li>Phase 1 Track C: CI/CD and Sparkle update pipeline (patterns from Pacer)</li>
+<li>Phase 1 Track B: live viewfinder on the Dashboard</li>
+<li>Phase 0: SwiftUI app shell with sidebar navigation (XcodeGen project)</li>
+<li>Add implementation roadmap with confirmed scope and future-work section</li>
+<li>Initial commit</li>
+</ul>]]></description>
+        <pubDate>Tue, 25 Aug 2026 14:07:10 +0000</pubDate>
+        <sparkle:version>1787666667</sparkle:version>
+        <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+        <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+        <enclosure
+            url="https://github.com/jfwoods/betterlink/releases/download/v0.1.0/Betterlink-0.1.0.dmg"
+            length="1877050"
+            type="application/octet-stream"
+            sparkle:edSignature="1hGF9ieJ3dqHJxhprZpwPGOJupRORQkcKDzRrSx/BGOt+XJ1nT4MgCdHm54dUNRXhztO9D/dRdZHP22mL9zKCw==" />
+    </item>
+        </channel>
+</rss>
