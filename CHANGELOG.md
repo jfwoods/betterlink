@@ -40,6 +40,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   literal, `localhost`, or `.local`, as a DNS-rebinding defence.
 
 ### Fixed
+- Every numeric field in the API rejected the values 0 and 1. The guard against JSON
+  booleans was `!(raw is Bool)`, and Swift's `NSNumber`-to-`Bool` bridge answers true
+  for the integers 0 and 1 as readily as it does for `true`, so a legal number was
+  turned away as "not a number". `{"factor": 1}` was among them, and 1 is the minimum
+  zoom, which made zooming back out impossible over the API — for a Stream Deck, a
+  reset-zoom button that could not work. So were `hue: 0`, the neutral value, and 0
+  and 1 on brightness, contrast, saturation, sharpness, focus and roll. The mirror
+  image held in the boolean validator, where `raw as? Bool` succeeds for the JSON
+  numbers 0 and 1 and quietly accepted `{"autoFocus": 1}` as `true` — the one kind of
+  coercion this API refuses everywhere else. All three validators now compare
+  `CFGetTypeID` against `CFBooleanGetTypeID()`, which tells a real JSON boolean from a
+  number that merely bridges to one. Found by running the API against the camera.
 - The loopback listener never bound. The TCP port was named twice — positionally to
   `NWListener(using:on:)` and again inside `requiredLocalEndpoint` — which
   Network.framework refuses with `EINVAL`, so with the API enabled and left on

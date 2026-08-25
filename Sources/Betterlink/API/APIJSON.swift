@@ -139,9 +139,14 @@ enum APIJSON {
         guard let raw = object[key] else {
             throw .badRequest("missing_field", "'\(key)' is required.")
         }
-        // NSNumber covers both JSON integers and JSON reals; Bool is an
-        // NSNumber too, and `true` is not a number anybody meant.
-        guard let number = raw as? NSNumber, !(raw is Bool) else {
+        // NSNumber covers both JSON integers and JSON reals; JSON `true` and
+        // `false` arrive as NSNumber too, and neither is a number anybody
+        // meant. The test has to be `CFGetTypeID`, not `raw is Bool`: the
+        // NSNumber-to-Bool bridge answers true for the integers 0 and 1 as
+        // well, so `is Bool` would reject two perfectly good numbers — and 1
+        // is the minimum zoom factor, and 0 the neutral hue.
+        guard let number = raw as? NSNumber,
+              CFGetTypeID(number) != CFBooleanGetTypeID() else {
             throw .badRequest("invalid_type", "'\(key)' must be a number.")
         }
         let value = number.doubleValue
@@ -165,7 +170,9 @@ enum APIJSON {
         guard let raw = object[key] else {
             throw .badRequest("missing_field", "'\(key)' is required.")
         }
-        guard let number = raw as? NSNumber, !(raw is Bool) else {
+        // `CFGetTypeID`, not `is Bool` — see `requireDouble`.
+        guard let number = raw as? NSNumber,
+              CFGetTypeID(number) != CFBooleanGetTypeID() else {
             throw .badRequest("invalid_type", "'\(key)' must be a number.")
         }
         let value = number.doubleValue
@@ -186,10 +193,15 @@ enum APIJSON {
         guard let raw = object[key] else {
             throw .badRequest("missing_field", "'\(key)' is required.")
         }
-        guard let value = raw as? Bool else {
+        // The same bridge in the other direction: `raw as? Bool` succeeds for
+        // the JSON numbers 0 and 1, which would quietly accept `"autoFocus": 1`
+        // as `true`. This API does not coerce anywhere else, so it does not
+        // coerce here — only a real JSON boolean is a boolean.
+        guard let number = raw as? NSNumber,
+              CFGetTypeID(number) == CFBooleanGetTypeID() else {
             throw .badRequest("invalid_type", "'\(key)' must be true or false.")
         }
-        return value
+        return number.boolValue
     }
 
     static func requireString(_ object: [String: Any], _ key: String,
