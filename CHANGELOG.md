@@ -3,6 +3,60 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.0] — unreleased
+
+### Added
+- Local REST API for Stream Deck integration. It listens on `127.0.0.1` by default,
+  can optionally be bound to the machine's LAN address instead, and **requires a
+  bearer token on every request — including over loopback.** There is no way to turn
+  authentication off: the app is not sandboxed, so every process running as the user
+  can reach loopback too, and "local" is not an access control. The token is generated
+  from `SecRandomCopyBytes`, stored in the Keychain rather than in defaults where any
+  process could read it, never logged and never returned in a response, and compared
+  in constant time over SHA-256 digests so neither its length nor its prefix leaks
+  through timing.
+- Twelve routes: list and apply presets, drive/stop/center the gimbal, set zoom,
+  start/stop/query recording, and read status or patch image controls. `GET /status`
+  returns connection state, position, zoom, every image value, video mode and
+  recording state in one call, which is the shape a Stream Deck needs for key
+  feedback. `202` and `200` are meaningfully different — `202` means the write was
+  queued on the same camera write queue the Dashboard uses and may not have landed.
+- A Local Control API section in Settings: enable, port, the LAN-binding toggle with
+  a plainly worded warning about what it exposes, the reachable URL, and
+  reveal-on-demand plus copy and regenerate for the token.
+- `POST /gimbal/drive` takes an optional `durationMs`, and is bounded underneath by a
+  dead-man ceiling that always applies — so a client that crashes without sending a
+  stop cannot pan the head to the endstop. The response says which limit is in force.
+- `Checks/APIProtocolCheck.swift` — the wire protocol, the trust boundary, the drive
+  timer, and listener construction for both bind modes. Runs without a camera.
+
+### Security
+- Every read off the socket is bounded before anything is allocated against it:
+  request line length, header count and size, body size, and an idle timeout that
+  closes a connection that opens and says nothing. Values out of range are rejected
+  with a 4xx rather than clamped into a camera write. No `Access-Control-*` header is
+  ever emitted and a request carrying an `Origin` header is refused outright, so a web
+  page the user happens to visit cannot drive their camera. `Host` must be an IP
+  literal, `localhost`, or `.local`, as a DNS-rebinding defence.
+
+### Fixed
+- The loopback listener never bound. The TCP port was named twice — positionally to
+  `NWListener(using:on:)` and again inside `requiredLocalEndpoint` — which
+  Network.framework refuses with `EINVAL`, so with the API enabled and left on
+  loopback, which is the default, it failed to start. Found by running it: no amount
+  of building or checking would have shown it, because nothing had ever opened a
+  socket. Now guarded by a construction check proved to fail on the regression.
+
+### Not yet verified
+- Every camera-dependent route — preset apply, gimbal drive, stop and center,
+  recording — is unexercised, as is a `409 gimbal_control_held` refusal against a
+  genuinely held on-screen control, which depends on a race between a human hand and a
+  network request that no check here can stage. Whether a non-loopback bind needs
+  `NSLocalNetworkUsageDescription` is also unconfirmed. The trust boundary itself has
+  been exercised against the running app: loopback-only binding, `401` without a token
+  and with a wrong one, `403` on an `Origin` header, no CORS headers, and the port
+  refused from the machine's own LAN address.
+
 ## [0.2.0] — unreleased
 
 ### Added
