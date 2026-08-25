@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.2.0] — unreleased
+## [0.2.0] — 2026-08-25
 
 ### Added
 - Virtual joystick for the gimbal, now the default control. A puck in a circular
@@ -63,12 +63,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   superseded, so releasing always stops the head. The rule covers every command that
   moves the head, centering included.
 
+### Verified on hardware
+- The joystick was driven by hand against the Link on 2026-08-25: feel and speed
+  tracking, releasing mid-drag, switching control style mid-drag, easing the puck just
+  past the deadzone, and applying a favorite from the viewfinder row. The 10 Hz update
+  rate was not found laggy and the deadzone's first speed step was not found too fast
+  to frame with, so neither the interval nor the ramp is being changed.
+- The speed arithmetic is backed by measurement rather than assumption. A limit-to-
+  limit sweep timed twice in each direction gives pan 65°/s at speed byte 30 and
+  33.5°/s at byte 15, tilt 41°/s at byte 20 and 21.7°/s at byte 10 — linear in the
+  speed byte to within about 5%, which is exactly what "half deflection is half speed"
+  requires. No correction curve is needed in `GimbalSpeedCaps.speedByte`.
+- Camera permission survives a rebuild, confirmed by behaviour and not just by
+  mechanism: two builds with different code-directory hashes under the same team both
+  streamed with no second prompt.
+
 ### Not yet verified
-- Nothing in this release has been exercised against the camera. The joystick's feel,
-  the portrait tilt lockout, and a drive refused against a genuinely held control are
-  all unverified on hardware, and the 10 Hz update rate and the deadzone ramp are
-  unmeasured. The mapping, the limiter and the ownership state machine are covered by
-  `GimbalMappingCheck`, which runs without a Link and cannot substitute for that.
+- The portrait tilt lockout, which needs the camera streaming portrait, and a drive
+  refused against a genuinely held on-screen control, which needs a second commanding
+  surface and therefore lands with the REST API rather than here.
+
+### Known
+- A relative drive is latched in the camera and outlives the process that sent it, so
+  killing or crashing the app mid-drag leaves the head running until it reaches its
+  endstop. Releasing the puck, leaving the Dashboard and switching control style all
+  stop it; app termination does not, because nothing stops the gimbal on the way out.
+  More reachable in this release than before it, the joystick being a held gesture and
+  now the default control.
 
 ## [0.1.0] — 2026-08-25
 
