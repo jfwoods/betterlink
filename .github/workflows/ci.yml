@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-flight runs for the same ref on new pushes — saves runner
+# minutes while iterating.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Verify build
+    # macos-26 (arm64) — the app's deployment target is macOS 26, which needs
+    # the Xcode 26 toolchain that only this image carries.
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      # XcodeGen (pinned prebuilt, not brew) + SPM cache + project generation,
+      # shared with the release workflow so the two can't drift.
+      - uses: ./.github/actions/prepare-build
+
+      # Preset persistence check: compiles the preset model + store with the
+      # bare toolchain and asserts the pinned on-disk schema, the snapshot
+      # encode/decode round-trip, and the store's single-default invariant.
+      # PresetTransfer.swift is in the list because PresetStore's import
+      # methods return PresetMergeResult, which is declared there.
+      - name: Preset persistence check
+        run: |
+          swiftc -swift-version 6 -parse-as-library \
+            Sources/Betterlink/Transport/UVCTypes.swift \
+            Sources/Betterlink/Presets/Preset.swift \
+            Sources/Betterlink/Presets/PresetStore.swift \
+            Sources/Betterlink/Presets/PresetTransfer.swift \
+            Checks/PresetPersistenceCheck.swift \
+            -o /tmp/preset-check
+          /tmp/preset-check
+
+      # Preset transfer check: the export/import wrapper format, every rejection
+      # path a file from outside the app can take (malformed JSON, wrong
+      # version, out-of-range values, duplicate identifiers), and the proof that
+      # a rejected import leaves neither the store nor its file touched.
+      # Compiles without the transport on purpose — PresetTransfer keeps the
+      # accepted ranges as pinned literals so this check does not need IOKit.
+      - name: Preset transfer check
+        run: |
+          swiftc -swift-version 6 -parse-as-library \
+            Sources/Betterlink/Transport/UVCTypes.swift \
+            Sources/Betterlink/Presets/Preset.swift \
+            Sources/Betterlink/Presets/PresetStore.swift \
+            Sources/Betterlink/Presets/PresetTransfer.swift \
+            Checks/PresetTransferCheck.swift \
+            -o /tmp/preset-transfer-check
+          /tmp/preset-transfer-check
+
+      # Unsigned compile-only build. We don't run signed builds in CI because
+      # the Developer ID cert lives in the release workflow's secrets; signed
+      # + notarized builds happen there.
+      #
+      # `xcbeautify` is preinstalled on the macOS runner images; if that ever
+      # changes the `|| cat` fallback keeps the build's exit code
+      # authoritative without losing log lines.
+      - name: Build Betterlink.app
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Betterlink.xcodeproj \
+            -scheme Betterlink \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            build \
+            | (xcbeautify --renderer github-actions || cat)

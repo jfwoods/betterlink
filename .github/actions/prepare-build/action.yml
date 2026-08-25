@@ -1,0 +1,53 @@
+name: Prepare Betterlink build
+description: >-
+  Everything a Betterlink build needs before xcodebuild — XcodeGen, a warm
+  Swift package cache, and the generated project — shared by the CI and
+  release workflows so the two can't drift.
+
+inputs:
+  generate-project:
+    description: >-
+      Run `xcodegen generate`. The release workflow passes "false" because it
+      stamps the tag's version into project.yml first and generates afterwards.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    # `brew install xcodegen` resolves taps and can take 30-60s. The project
+    # ships a prebuilt binary per release, so fetch that instead — pinned,
+    # deterministic, and a couple of seconds. (Pattern from Pacer.)
+    - name: Install XcodeGen
+      shell: bash
+      env:
+        XCODEGEN_VERSION: "2.46.0"
+      run: |
+        set -euo pipefail
+        if command -v xcodegen >/dev/null 2>&1; then
+          echo "xcodegen already present: $(xcodegen --version)"; exit 0
+        fi
+        curl -fsSL -o /tmp/xcodegen.zip \
+          "https://github.com/yonaskolb/XcodeGen/releases/download/${XCODEGEN_VERSION}/xcodegen.zip"
+        unzip -q /tmp/xcodegen.zip -d /tmp/xcodegen
+        sudo mkdir -p /usr/local/bin /usr/local/share
+        sudo cp -R /tmp/xcodegen/xcodegen/bin/* /usr/local/bin/
+        sudo cp -R /tmp/xcodegen/xcodegen/share/* /usr/local/share/
+        xcodegen --version
+
+    # Sparkle is fetched and compiled on every clean build otherwise. Keyed on
+    # project.yml, which declares the package requirement.
+    - name: Cache Swift packages
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/Library/Caches/org.swift.swiftpm
+          ~/.swiftpm
+        key: spm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('project.yml') }}
+        restore-keys: |
+          spm-${{ runner.os }}-${{ runner.arch }}-
+
+    - name: Generate Xcode project
+      if: inputs.generate-project == 'true'
+      shell: bash
+      run: xcodegen generate

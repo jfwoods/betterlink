@@ -1,0 +1,12 @@
+.DS_Store
+build/
+DerivedData/
+*.xcodeproj
+xcuserdata/
+.build-dd/
+*.p8
+*.p12
+PRIVATETODOs.md
+*.certSigningRequest
+*.cer
+*.key

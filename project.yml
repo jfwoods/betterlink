@@ -1,0 +1,75 @@
+name: Betterlink
+options:
+  bundleIdPrefix: me.jfwoods
+  deploymentTarget:
+    macOS: "26.0"
+
+packages:
+  Sparkle:
+    # Sparkle 2.x auto-update framework. Releases ship a DMG plus an
+    # EdDSA-signed appcast served from GitHub Pages; the app checks it via
+    # SPUStandardUpdaterController. See docs/RELEASING.md for the keypair
+    # and secrets setup.
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.6.0
+
+targets:
+  Betterlink:
+    type: application
+    platform: macOS
+    sources: [Sources/Betterlink]
+    info:
+      path: Sources/Betterlink/Info.plist
+      properties:
+        CFBundleDisplayName: Betterlink
+        CFBundleIconName: AppIcon
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSCameraUsageDescription: Shows the live viewfinder from your Insta360 Link.
+        NSMicrophoneUsageDescription: Captures audio when recording video.
+        # Sparkle appcast feed. Must match where the release workflow's
+        # gh-pages appcast is served (see docs/RELEASING.md).
+        SUFeedURL: https://jfwoods.github.io/betterlink/appcast.xml
+        # Sparkle EdDSA public key. The matching private key lives in the
+        # SPARKLE_ED_PRIVATE_KEY GitHub secret and in the login keychain on the
+        # machine that ran `generate_keys`. Rotating this strands every
+        # installed copy — see docs/RELEASING.md.
+        SUPublicEDKey: AYALH5595hYRQqHeF/qWLucgZSEVqXZC2REcOXbEN5A=
+        # Check for updates on launch and every 24h. Both are user-overridable
+        # through Sparkle's standard update-permission UI. The release workflow
+        # publishes the appcast in the same run that publishes the DMG, so the
+        # feed exists by the time anyone can install a build that reads it.
+        SUEnableAutomaticChecks: true
+        SUScheduledCheckInterval: 86400
+    settings:
+      base:
+        ENABLE_HARDENED_RUNTIME: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SWIFT_VERSION: "6.0"
+        # Local dev builds sign with the real Developer ID rather than
+        # ad-hoc ("-"). TCC stores a code requirement alongside each
+        # camera/microphone grant; an ad-hoc signature's requirement is
+        # pinned to the cdhash, which changes on every build, so macOS
+        # saw each rebuild as a new app and re-prompted. A Developer ID
+        # signature's requirement is team-based and therefore stable, so
+        # the grant survives rebuilds. CI and the release workflow both
+        # override CODE_SIGN_IDENTITY on the xcodebuild command line, so
+        # this only affects local builds.
+        CODE_SIGN_IDENTITY: "Developer ID Application"
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: "496644GP9F"
+        CODE_SIGN_ENTITLEMENTS: Sources/Betterlink/Betterlink.entitlements
+        # Stamped by the release workflow from the git tag (vX.Y.Z) and a
+        # unix-timestamp build number; these are the local-dev defaults.
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+    dependencies:
+      - package: Sparkle
+        product: Sparkle
+schemes:
+  Betterlink:
+    build:
+      targets:
+        Betterlink: all
+    run:
+      config: Debug
