@@ -29,20 +29,26 @@ enum GimbalDrivePolicy {
     /// to bound travel for a client that has stopped talking, and the number
     /// that matters is ceiling × the gimbal's angular rate.
     ///
-    /// That rate has never been measured on this camera. investigation-findings.md
-    /// records the speed *byte* range (pan 0–30, tilt 0–20, §4) and nothing
-    /// about degrees per second, so "short enough not to reach the endstop"
-    /// cannot be guaranteed at any value here. Five seconds is chosen on the
-    /// safe side of plausible consumer-gimbal rates: the pan envelope is ±145°,
-    /// so at a typical 30–100°/s a full-speed abandoned drive covers a fraction
-    /// of the range from centre rather than slamming into the stop, and at the
-    /// app's default speed (0.5, i.e. byte 15 of 30) considerably less.
+    /// That rate has now been measured (2026-08-25, limit to limit, twice in
+    /// each direction): pan runs at 65°/s at speed byte 30 and 33.5°/s at byte
+    /// 15, tilt at 41°/s at byte 20 and 21.7°/s at byte 10 — linear in the
+    /// speed byte to within about 5%.
     ///
-    /// It also sets the collision window with the Dashboard — see
-    /// `APIRouter.armGimbalDeadMan` — which scales directly with this number
-    /// and is the other reason not to make it generous.
+    /// Those numbers contradict what this constant was originally chosen for.
+    /// The pan envelope is ±145°, so from centre an abandoned drive reaches the
+    /// endstop in 2.2s at full speed and 4.3s at the old default cap of 0.5;
+    /// tilt's usable travel is ~142° total, reached in 1.7s and 3.3s. Five
+    /// seconds does not keep an abandoned drive off the stop at any speed this
+    /// camera offers. It was picked to, and it does not.
     ///
-    /// Worth revisiting the moment somebody times a full sweep on hardware.
+    /// It is kept at five seconds anyway, for now, because the failure it
+    /// actually prevents is unbounded travel rather than a hard stop — the head
+    /// parks against its limit and sits there, which is jarring but harmless —
+    /// and because this number also sets the collision window with the
+    /// Dashboard (see `APIRouter.armGimbalDeadMan`), so shortening it is not a
+    /// free change. Holding to the original intent means something nearer
+    /// 1.5s, or a ceiling that scales with the speed byte. That is a live
+    /// decision, not an oversight.
     static let ceilingMilliseconds = 5_000
 
     /// Largest `durationMs` the API will parse. Anything inside this range and
