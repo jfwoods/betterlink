@@ -38,6 +38,17 @@ final class RecordingController: NSObject {
     private let sessionBox: SessionBox
     private let sessionQueue: DispatchQueue
 
+    /// A stop asked for while the recording was still starting. AVFoundation
+    /// has nothing to finish until `didStartRecordingTo` fires — four to six
+    /// seconds after the start on this camera — so the request is held here
+    /// and applied the moment the recording does begin. Dropping it instead
+    /// left the camera recording after the user had asked it to stop.
+    ///
+    /// Cleared on every `startRecording()`, which is enough: it is read in
+    /// exactly one place, the delegate callback for the recording that is
+    /// starting right now.
+    private var stopRequestedWhileStarting = false
+
     /// The pieces added to the shared session for the current recording.
     /// Created and removed only on `sessionQueue`.
     @ObservationIgnored private nonisolated(unsafe) var movieOutput: AVCaptureMovieFileOutput?
@@ -62,6 +73,7 @@ final class RecordingController: NSObject {
             return
         }
         state = .starting
+        stopRequestedWhileStarting = false
         Task {
             let audioBox = await Self.selectAudioDevice()
             beginCapture(audio: audioBox)
@@ -70,8 +82,19 @@ final class RecordingController: NSObject {
 
     /// Asks the movie output to finish; completion lands in the file-output
     /// delegate, which removes the recording graph and settles the state.
+    ///
+    /// A stop during `.starting` is latched rather than dropped — see
+    /// `stopRequestedWhileStarting`.
     func stopRecording() {
-        guard case .recording = state else { return }
+        switch state {
+        case .recording:
+            break
+        case .starting:
+            stopRequestedWhileStarting = true
+            return
+        case .idle, .stopping, .failed:
+            return
+        }
         state = .stopping
         sessionQueue.async { [weak self] in
             self?.movieOutput?.stopRecording()
@@ -235,6 +258,10 @@ extension RecordingController: AVCaptureFileOutputRecordingDelegate {
         Task { @MainActor in
             guard case .starting = state else { return }
             state = .recording(startedAt: Date())
+            if stopRequestedWhileStarting {
+                stopRequestedWhileStarting = false
+                stopRecording()
+            }
         }
     }
 

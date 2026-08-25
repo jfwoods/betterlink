@@ -503,7 +503,13 @@ final class APIRouter {
 
     private func stopRecording(_ request: HTTPRequest) throws(APIFault) -> HTTPResponse {
         try requireEmptyBody(request)
-        guard case .recording = viewfinder.recorder.state else {
+        // `.starting` counts: the recorder latches a stop asked for before
+        // the recording has begun, so refusing here would be the API telling
+        // the caller nothing was running while a recording was on its way up.
+        switch viewfinder.recorder.state {
+        case .recording, .starting:
+            break
+        case .idle, .stopping, .failed:
             throw .conflict("not_recording", "No recording is running.")
         }
         viewfinder.recorder.stopRecording()

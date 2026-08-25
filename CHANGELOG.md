@@ -40,6 +40,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   literal, `localhost`, or `.local`, as a DNS-rebinding defence.
 
 ### Fixed
+- A stop asked for while a recording was still starting was dropped, and the API
+  reported `not_recording` — "No recording is running" — while the recording came up
+  behind it and ran on. Starting takes four to six seconds on this camera, so a
+  record/stop double-tap on a Stream Deck reliably left the camera recording to disk
+  after the user had told it to stop, with the app insisting nothing was running.
+  `startRecording()` already treated `.starting` as in progress; the two halves of the
+  state machine simply disagreed. A stop during `.starting` is now latched and applied
+  the moment AVFoundation reports the recording has begun, so the recording ends
+  without ever reaching the running state, and the API accepts the request instead of
+  refusing it. Found by running the API against the camera.
 - Every numeric field in the API rejected the values 0 and 1. The guard against JSON
   booleans was `!(raw is Bool)`, and Swift's `NSNumber`-to-`Bool` bridge answers true
   for the integers 0 and 1 as readily as it does for `true`, so a legal number was
@@ -60,14 +70,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   socket. Now guarded by a construction check proved to fail on the regression.
 
 ### Not yet verified
-- Every camera-dependent route — preset apply, gimbal drive, stop and center,
-  recording — is unexercised, as is a `409 gimbal_control_held` refusal against a
-  genuinely held on-screen control, which depends on a race between a human hand and a
-  network request that no check here can stage. Whether a non-loopback bind needs
-  `NSLocalNetworkUsageDescription` is also unconfirmed. The trust boundary itself has
-  been exercised against the running app: loopback-only binding, `401` without a token
-  and with a wrong one, `403` on an `Origin` header, no CORS headers, and the port
-  refused from the machine's own LAN address.
+- A `409 gimbal_control_held` refusal against a genuinely held on-screen control. It
+  depends on a race between a human hand and a network request, and needs someone
+  holding the Dashboard's joystick while the request goes out.
+- The portrait tilt lockout over the API, which needs the camera streaming portrait,
+  and the `503` paths, which need the camera detached mid-request.
+
+  Everything else has now been run against the camera: every route, the trust
+  boundary (loopback-only binding, `401` without a token and with a wrong one, `403`
+  on an `Origin` header, no CORS headers, the port refused from the machine's own LAN
+  address, and `401` ahead of routing so the route table cannot be enumerated),
+  `durationMs` honoured and clamped, the dead man firing, and preset apply moving the
+  head. `NSLocalNetworkUsageDescription` is confirmed **not** needed: binding every
+  interface raised no Local Network prompt and logged no TCC event, that prompt being
+  for outbound discovery rather than for accepting connections.
+
+### Known, not fixed here
+- The five-second dead man bounds an abandoned drive, but not before the head reaches
+  its endstop. A limit-to-limit sweep measures 65°/s at pan speed byte 30 and 33.5°/s
+  at byte 15 — linear in the speed byte to within 5%, which is what the joystick's
+  arithmetic assumes — so 145° from centre takes between two and four seconds
+  depending on the configured cap. `GimbalDrivePolicy.ceilingMilliseconds` is
+  documented as chosen to avoid exactly that, and on this camera it does not. Holding
+  to the stated intent means a ceiling nearer 1.5s, or one that scales with the speed
+  byte; both also move the collision window with the Dashboard, so the number is left
+  alone pending a decision.
+- A latched drive outlives the process that sent it. Killing the app mid-drag leaves
+  the head sweeping to its endstop, because nothing stops the gimbal on termination.
 
 ## [0.2.0] — unreleased
 
