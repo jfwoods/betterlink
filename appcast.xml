@@ -70,5 +70,55 @@
             type="application/octet-stream"
             sparkle:edSignature="uUBB2dkkScTsfoderblnmn03vr/FFm5GlgPiYBSpHTPKT2n5gmoqPb5qqdma+NsK41L5/7zzVHgZKzd5aoGIDw==" />
     </item>
+            <item>
+        <title>Version 0.2.0</title>
+        <description><![CDATA[<p>Betterlink 0.2.0 replaces the gimbal D-pad with a virtual joystick and makes<br>
+the two axis speeds independently adjustable, and it puts your favorite<br>
+presets on the viewfinder itself.</p>
+<h2>A joystick for the gimbal</h2>
+<p>Direction and speed in one gesture. Drag the puck out of the well and the head<br>
+follows: shove it to swing across the room, ease it out to creep the last few<br>
+degrees. The pad could only say "that way, at whatever the slider is set to";<br>
+the joystick says "that way, this fast", and how fast is how far you pushed.</p>
+<p>Let go and the puck snaps home and the head stops. So does leaving the<br>
+Dashboard, and so does switching control style mid-drag — a gimbal left<br>
+driving is the worst thing a control like this can do, so every way out of the<br>
+gesture stops it.</p>
+<p>There is a deadzone around the center, so a stray click near the middle will<br>
+not creep the head, and an axis whose share of the push rounds to nothing<br>
+stops rather than crawling — a near-vertical shove pans no sideways drift.</p>
+<p><strong>The D-pad is still there.</strong> A segmented control in the bar switches between<br>
+them, and the pad is unchanged: for a single precise nudge, a button is easier<br>
+to aim than a stick.</p>
+<h2>Pan and tilt speeds, separately</h2>
+<p>Two sliders instead of one, with a link toggle that ties them together if you<br>
+liked the old single-speed behavior. They set a <em>ceiling</em>: a full joystick<br>
+deflection reaches it, and anything less is a proportion of it. The same<br>
+settings live in the new Gimbal section in Settings, bound to the same<br>
+preferences, so the control bar and the settings pane are one control in two<br>
+places rather than two that can disagree.</p>
+<p>Speeds are measured, not guessed: pan runs to 65°/s and tilt to 41°/s at the<br>
+top of their ranges, and the response is linear, so half a push really is half<br>
+the speed.</p>
+<h2>Favorites on the viewfinder</h2>
+<p>Star any preset in the preset pane and it appears in a row above the controls<br>
+on the Dashboard, one click from the shot. Presets you use once a month stay<br>
+in the pane; the two or three you actually switch between all day are on the<br>
+screen you are already looking at.</p>
+<h2>Known issue</h2>
+<p>The camera latches a movement command internally, so if Betterlink is force<br>
+quit or crashes while you are mid-drag, the head keeps moving until it reaches<br>
+the end of its travel. Releasing the puck, leaving the Dashboard or switching<br>
+control style all stop it normally — this only affects an abnormal exit.</p>]]></description>
+        <pubDate>Tue, 25 Aug 2026 22:50:20 +0000</pubDate>
+        <sparkle:version>1787698075</sparkle:version>
+        <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
+        <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+        <enclosure
+            url="https://github.com/jfwoods/betterlink/releases/download/v0.2.0/Betterlink-0.2.0.dmg"
+            length="1986770"
+            type="application/octet-stream"
+            sparkle:edSignature="mAsKpiav8XpdGN2u9wL19e5jJ/jcvcei+wr9SYc+UCtHU2Gn23LKNziFaOxPx4A8eA0N4x79ibyjtSQl+kAcCA==" />
+    </item>
         </channel>
 </rss>
