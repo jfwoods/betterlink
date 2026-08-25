@@ -100,6 +100,11 @@ struct ContentView: View {
     // and the discovery mirroring survive sidebar navigation.
     @State private var cameraControls: CameraControlsModel
     @State private var presets: PresetsModel
+    // Held so the local API server can read pan/tilt for GET /status; the
+    // models keep theirs private. @State, not a plain let, because a re-created
+    // ContentView must not hand the server a different transport from the one
+    // the persisted models are already using.
+    @State private var transport: UVCTransport
 
     /// Handed to Settings › Updates. Owned by `BetterlinkApp`, not by this view.
     private let updater: SPUUpdater
@@ -121,6 +126,7 @@ struct ContentView: View {
         presets.onApplied = { cameraControls.reloadFromCamera() }
         _cameraControls = State(initialValue: cameraControls)
         _presets = State(initialValue: presets)
+        _transport = State(initialValue: transport)
 
         // Read through UserDefaults rather than the @AppStorage properties:
         // a property wrapper is not readable until init has returned. An
@@ -162,6 +168,13 @@ struct ContentView: View {
         // Camera controls mirror the viewfinder's Link discovery instead of
         // running their own; keep tracking for the life of the window.
         .task { cameraControls.track(viewfinder) }
+        // Local REST API for Stream Deck integration. Disabled until the user
+        // turns it on in Settings; the server follows the api.* preferences
+        // itself and stops when this task is cancelled.
+        .task {
+            await APIServer.shared.run(transport: transport, viewfinder: viewfinder,
+                                       controls: cameraControls, presets: presets)
+        }
         .onChange(of: selection) { _, newValue in
             guard let newValue else { return }
             lastPane = newValue.rawValue

@@ -20,6 +20,7 @@ struct SettingsView: View {
             GeneralSettingsSection()
             GimbalSettingsSection()
             PresetTransferSection(store: store)
+            APISettingsSection()
             UpdatesSettingsSection(updater: updater)
         }
         .formStyle(.grouped)

@@ -78,6 +78,25 @@ jobs:
             -o /tmp/preset-transfer-check
           /tmp/preset-transfer-check
 
+      # API protocol check: compiles the HTTP parser, the bearer-token
+      # authorization and the request validators with the bare toolchain and
+      # asserts the wire format, every parser ceiling, and that a missing or
+      # wrong token is refused. Needs no camera and opens no socket.
+      - name: API protocol check
+        run: |
+          swiftc -swift-version 6 -parse-as-library \
+            Sources/Betterlink/API/HTTPMessage.swift \
+            Sources/Betterlink/API/HTTPRequestParser.swift \
+            Sources/Betterlink/API/APIAuthorization.swift \
+            Sources/Betterlink/API/APIJSON.swift \
+            Sources/Betterlink/API/GimbalDrivePolicy.swift \
+            Sources/Betterlink/Transport/UVCTypes.swift \
+            Sources/Betterlink/Controls/GimbalJoystick.swift \
+            Sources/Betterlink/API/APIListenerFactory.swift \
+            Checks/APIProtocolCheck.swift \
+            -o /tmp/api-check
+          /tmp/api-check
+
       # Unsigned compile-only build. We don't run signed builds in CI because
       # the Developer ID cert lives in the release workflow's secrets; signed
       # + notarized builds happen there.
