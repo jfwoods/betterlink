@@ -54,5 +54,21 @@
             type="application/octet-stream"
             sparkle:edSignature="1hGF9ieJ3dqHJxhprZpwPGOJupRORQkcKDzRrSx/BGOt+XJ1nT4MgCdHm54dUNRXhztO9D/dRdZHP22mL9zKCw==" />
     </item>
+            <item>
+        <title>Version 0.1.0</title>
+        <description><![CDATA[<h2>What's Changed</h2>
+<ul>
+<li>Betterlink</li>
+</ul>]]></description>
+        <pubDate>Tue, 25 Aug 2026 14:25:11 +0000</pubDate>
+        <sparkle:version>1787667763</sparkle:version>
+        <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+        <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+        <enclosure
+            url="https://github.com/jfwoods/betterlink/releases/download/v0.1.0/Betterlink-0.1.0.dmg"
+            length="1877150"
+            type="application/octet-stream"
+            sparkle:edSignature="uUBB2dkkScTsfoderblnmn03vr/FFm5GlgPiYBSpHTPKT2n5gmoqPb5qqdma+NsK41L5/7zzVHgZKzd5aoGIDw==" />
+    </item>
         </channel>
 </rss>
