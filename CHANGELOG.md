@@ -3,7 +3,76 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.2.0] — unreleased
+
+### Added
+- Virtual joystick for the gimbal, now the default control. A puck in a circular
+  well sets direction and speed in one gesture — shove it to swing across the room,
+  ease it out to creep the last few degrees — where the pad could only say "that
+  way, at the one speed on the slider". Releasing snaps the puck home and stops the
+  head; so does switching control style or leaving the Dashboard mid-drag, because a
+  gimbal left driving is the worst thing this control can do. A deadzone near the
+  center keeps a stray click from creeping the head, and an axis that rounds to
+  nothing stops rather than crawling, so a near-vertical push does not drift sideways.
+- Segmented control in the bar switches between Joystick and D-Pad. The pad is
+  unchanged and stays, because a single precise nudge is easier to aim with a button.
+- Gimbal section in Settings, exposing the control style and both speed ceilings. It
+  binds the same preference keys as the control bar, so the two surfaces are one
+  value, live in both directions.
+- Favorite presets. Presets starred in the Preset Menu appear as a row of named
+  buttons on the Dashboard, directly under the viewfinder, so the handful used
+  constantly while framing a shot no longer cost a trip to the sidebar. The row sits
+  above the gimbal/speed/zoom strip rather than over the picture — overlaying the
+  viewfinder would cover the shot at exactly the moment the user is looking at it to
+  choose. It hides itself when nothing is starred, and scrolls horizontally so a long
+  list neither squeezes its buttons nor clips the last one.
+- `Checks/GimbalMappingCheck.swift` — displacement to direction and speed byte, the
+  deadzone, the portrait tilt lockout, the drive limiter's duplicate suppression, and
+  the drive-ownership state machine. No app target, no Link attached.
+
+### Changed
+- The gimbal speed slider is now two sliders, Pan and Tilt, chained together by
+  default — which reproduces exactly what the single slider did, since it was already
+  scaled into each axis's own hardware cap (pan 0–30, tilt 0–20). The value is a
+  ceiling rather than a fixed speed: full deflection reaches it, half reaches half of
+  it, and the D-pad, having no analog range, always drives at it.
+- Gimbal drive commands are rate-limited to ~10 Hz, and a payload the camera already
+  holds is not sent at all. The command is latched, so an update arriving too soon is
+  held and flushed rather than dropped. The stop is exempt: never delayed, never
+  coalesced, and it discards any drive still waiting.
+- The joystick respects the portrait tilt lockout: while the camera streams a 9:16
+  format the puck is held on the horizontal axis, rather than letting you aim at a
+  tilt the camera silently drops.
+- Presets carry an `isFavorite` flag in `presets.json`. Decoding is hand-written
+  rather than synthesized: Swift's synthesized `Decodable` throws `keyNotFound` for a
+  missing key even when the property has a default value, and because
+  `PresetStore.load()` moves an undecodable file aside to `.unreadable`, the
+  synthesized version would have emptied the preset list of every existing user on
+  the first launch after upgrading rather than defaulting one field.
+- The Preset Menu's "On connect" indicator is drawn as a bolt rather than a star,
+  since the star now marks favorites and one glyph cannot mean both in the same row.
+
+### Fixed
+- A gimbal stop from one controller could end another's move, and a drive could keep
+  running after the user let go. The command is latched and the model had no notion of
+  who was driving, so an API client's dead-man timeout could stop the head under the
+  user's hand — and, with the opposite priority, a client taking over could leave a
+  motorized head turning after their hand came off the control. A drive now has an
+  owner; a stop from an owner that no longer holds the head goes nowhere; and while a
+  Dashboard control is physically held, an API drive is refused rather than
+  superseded, so releasing always stops the head. The rule covers every command that
+  moves the head, centering included.
+
+### Not yet verified
+- Nothing in this release has been exercised against the camera. The joystick's feel,
+  the portrait tilt lockout, and a drive refused against a genuinely held control are
+  all unverified on hardware, and the 10 Hz update rate and the deadzone ramp are
+  unmeasured. The mapping, the limiter and the ownership state machine are covered by
+  `GimbalMappingCheck`, which runs without a Link and cannot substitute for that.
+
+## [0.1.0] — 2026-08-25
+
+First release.
 
 ### Changed
 - Local builds sign with the Developer ID identity instead of ad hoc. macOS
@@ -97,7 +166,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   A Settings section covers the three panes, and the Presets section documents
   the export/import file format, what import validates before touching the
   store, and the merge rule for an imported "Apply on Connect" mark — it never
-  displaces one you set, but it fills an empty slot.
+  displaces one you set, but it fills an empty slot. `docs/images/settings.png`
+  is captured from a real build; the login-item toggle photographs in whatever
+  state the machine is actually in, rather than being switched on for the shot.
 - App icon. The mark is two arcs on the same profile as the reference ring (inner/outer
   diameter 0.75, arc width 12.5% of the outer diameter), blended where they meet and
   wrapped in one continuous outline whose straight segment reads as the stem of a B.
