@@ -53,6 +53,20 @@ jobs:
       # a rejected import leaves neither the store nor its file touched.
       # Compiles without the transport on purpose — PresetTransfer keeps the
       # accepted ranges as pinned literals so this check does not need IOKit.
+      # Gimbal mapping check: joystick displacement to direction + speed byte,
+      # the deadzone, the portrait tilt lockout, the drive limiter's duplicate
+      # suppression, and the drive-ownership state machine that keeps one
+      # controller's stop from ending another's move. Compiles the pure mapping
+      # layer against UVCTypes alone — no app target, no Link attached.
+      - name: Gimbal mapping check
+        run: |
+          swiftc -swift-version 6 -parse-as-library \
+            Sources/Betterlink/Transport/UVCTypes.swift \
+            Sources/Betterlink/Controls/GimbalJoystick.swift \
+            Checks/GimbalMappingCheck.swift \
+            -o /tmp/gimbal-mapping-check
+          /tmp/gimbal-mapping-check
+
       - name: Preset transfer check
         run: |
           swiftc -swift-version 6 -parse-as-library \

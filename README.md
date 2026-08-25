@@ -38,7 +38,7 @@ with the controls arranged around it.
   Records to a timestamped `.mov` in `~/Movies` and reveals it in Finder when it
   finishes. Audio prefers the Link's own microphone.
 - **Presets.** One named snapshot of position, zoom, and every image parameter,
-  re-applied in a click — and exportable, so a set of shots moves to another Mac.
+  re-applied in a click.
 - **Automatic updates** through Sparkle, signed and notarized by the release
   pipeline.
 
@@ -56,47 +56,6 @@ captured from the camera and restored together. They are stored as JSON in
 Capture is all-or-nothing: if any value can't be read, no preset is saved.
 Restore is deliberately forgiving — individual controls are allowed to fail and
 the failures are reported in a banner rather than an alert.
-
-### Moving presets between machines
-
-Settings → Presets exports every saved preset to a versioned JSON wrapper:
-
-```json
-{ "format": "betterlink.presets", "version": 1, "exportedAt": "…", "presets": [ … ] }
-```
-
-It's plain JSON with sorted keys, so it diffs cleanly and can be kept in version
-control or edited by hand. Import validates the entire file before the store is
-touched — format marker, exact version, duplicate identifiers, blank names, and
-every value against the range the camera accepts — so a damaged or foreign file
-changes nothing at all.
-
-A valid file then offers **Merge** or **Replace All**. Merge skips presets you
-already have, matched by identifier. An imported "Apply on Connect" mark never
-displaces one you set yourself, but it will fill the slot if you haven't set
-one, and the summary tells you when that happened.
-
-## Settings
-
-![The Settings pane: General, Presets, and Updates](docs/images/settings.png)
-
-Settings is a sidebar pane rather than a separate window — there is no ⌘,
-shortcut. Three sections:
-
-**General.** "Open Betterlink at Login" reads the live `SMAppService`
-registration instead of a stored preference, so it shows what macOS actually has
-on file and follows changes you make in System Settings › General › Login Items.
-If macOS wants approval, an "Approval Needed" row appears with a button through
-to that pane. "Reopen the Last Pane on Launch" is on by default — the ordinary
-Mac behavior — and turning it off makes the app always start on the Dashboard.
-The last-used pane is recorded on every navigation whether or not the preference
-is on, so switching it on later has something real to restore.
-
-**Presets.** A saved-preset count, and the export/import described above.
-
-**Updates.** An automatic-check toggle, an Hourly / Daily / Weekly frequency
-picker, "Check for Updates Now" (which works whether or not automatic checks are
-on), and the running version and build number.
 
 ## Requirements
 
@@ -157,6 +116,7 @@ database is locked`.
 
 Honest list of what this does not do yet:
 
+- **Settings is a placeholder.** The pane exists; nothing lives in it.
 - **"Apply on Connect"** persists on a preset and shows in the list, but
   nothing applies it on connect yet — the device-connection hook is still to
   come.

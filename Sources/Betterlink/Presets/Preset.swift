@@ -14,15 +14,42 @@ struct Preset: Codable, Equatable, Identifiable, Sendable {
     /// enforces at most one default; the connect-time hook itself lands with
     /// device-connection observation in a later phase — the flag persists now.
     var isDefault: Bool
+    /// Promoted to the Dashboard's favorites row, one click from the live
+    /// viewfinder. Independent of `isDefault`: any number of presets can be
+    /// favorites, and being the connect-time default says nothing about
+    /// whether the user wants it on the row.
+    var isFavorite: Bool
     var snapshot: CameraSnapshot
 
     init(id: UUID = UUID(), name: String, createdAt: Date = .now,
-         isDefault: Bool = false, snapshot: CameraSnapshot) {
+         isDefault: Bool = false, isFavorite: Bool = false, snapshot: CameraSnapshot) {
         self.id = id
         self.name = name
         self.createdAt = createdAt
         self.isDefault = isDefault
+        self.isFavorite = isFavorite
         self.snapshot = snapshot
+    }
+
+    // Decoding is hand-written for exactly one reason: `isFavorite` did not
+    // exist when users' presets.json files were written, and the *synthesized*
+    // Decodable throws `keyNotFound` for a missing key even when the property
+    // has a default value in the memberwise init — the default is not
+    // consulted. That throw would not cost one field, it would cost the file:
+    // `PresetStore.load()` treats any decode error as an unreadable file and
+    // moves the whole thing aside, so a synthesized decode here would empty a
+    // real user's preset list on first launch after upgrading.
+    //
+    // Every other key stays a strict `decode` so a genuinely corrupt file is
+    // still caught rather than silently rebuilt from defaults.
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        isDefault = try container.decode(Bool.self, forKey: .isDefault)
+        isFavorite = try container.decodeIfPresent(Bool.self, forKey: .isFavorite) ?? false
+        snapshot = try container.decode(CameraSnapshot.self, forKey: .snapshot)
     }
 }
 

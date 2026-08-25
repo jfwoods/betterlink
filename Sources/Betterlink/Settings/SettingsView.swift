@@ -18,6 +18,7 @@ struct SettingsView: View {
     var body: some View {
         Form {
             GeneralSettingsSection()
+            GimbalSettingsSection()
             PresetTransferSection(store: store)
             UpdatesSettingsSection(updater: updater)
         }

@@ -53,6 +53,20 @@ final class PresetStore {
         persist()
     }
 
+    /// The presets promoted to the Dashboard's favorites row, in the same
+    /// order the Preset Menu lists them — there is no separate ordering UI,
+    /// so one order everywhere is the least surprising rule.
+    var favorites: [Preset] { presets.filter(\.isFavorite) }
+
+    /// Flips a preset's favorite mark. Unlike `setDefault` there is no
+    /// exclusivity to enforce — any number of presets can be favorites — so
+    /// this only has to persist the change.
+    func toggleFavorite(_ id: UUID) {
+        guard let index = presets.firstIndex(where: { $0.id == id }) else { return }
+        presets[index].isFavorite.toggle()
+        persist()
+    }
+
     /// Marks `id` as the default (applied on connect), demoting any other.
     /// Passing false clears the flag without electing a new default.
     func setDefault(_ id: UUID, _ isDefault: Bool = true) {

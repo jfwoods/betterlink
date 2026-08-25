@@ -6,11 +6,20 @@ import SwiftUI
 /// focus, anti-flicker, video mode) live in a trailing inspector — the HIG
 /// split between content controls and inspectors.
 ///
+/// The favorites strip sits between the two: starred presets, one click from
+/// the live picture, in the control-bar area rather than over the viewfinder —
+/// a preset applied while you are framing a shot is exactly when you least
+/// want something covering the shot.
+///
 /// ViewfinderView itself is deliberately untouched (a recording overlay for
 /// it lives on another branch); everything here wraps around it.
 struct DashboardView: View {
     let viewfinder: ViewfinderModel
     let controls: CameraControlsModel
+    /// Owned by ContentView and shared with the preset panes, so a preset
+    /// applied from here reports through the same banner and respects the
+    /// same one-operation-at-a-time rule as one applied from the Preset Menu.
+    let presets: PresetsModel
 
     @State private var isInspectorPresented = true
 
@@ -28,8 +37,15 @@ struct DashboardView: View {
                     }
                 }
             Divider()
+            FavoritesBar(model: presets)
             CameraControlBar(model: controls)
         }
+        // The preset panes' banner, reused verbatim: applying from the
+        // favorites row has to be able to report a failure, and a second
+        // error-reporting style for the same operation would be worse than
+        // an extra strip. A bottom safe-area inset keeps it out of the
+        // viewfinder rather than over it.
+        .safeAreaInset(edge: .bottom, spacing: 0) { PresetActivityBanner(model: presets) }
         .inspector(isPresented: $isInspectorPresented) {
             CameraInspectorView(model: controls)
                 .inspectorColumnWidth(min: 270, ideal: 320, max: 400)
@@ -53,5 +69,7 @@ struct DashboardView: View {
 }
 
 #Preview {
-    DashboardView(viewfinder: ViewfinderModel(), controls: CameraControlsModel())
+    DashboardView(viewfinder: ViewfinderModel(),
+                  controls: CameraControlsModel(),
+                  presets: PresetsModel())
 }

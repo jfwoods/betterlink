@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import Observation
 
@@ -22,36 +23,6 @@ struct AdjustableControl: Sendable {
     }
 }
 
-/// The four gimbal pad directions, mapped onto the XU relative pan/tilt axes.
-///
-/// The direction sign is NOT hardware-verified (§9): the prior CLI shipped
-/// with a sign inverted relative to its own documentation. If up/down or
-/// left/right move the wrong way on a real Link, flip the mapping here —
-/// nowhere else.
-enum GimbalPadDirection: Sendable {
-    case up, down, left, right
-
-    var pan: GimbalDirection {
-        switch self {
-        case .left: .negative
-        case .right: .positive
-        case .up, .down: .stop
-        }
-    }
-
-    /// Tilt's direction byte runs opposite the pan one: 0x01 drives the head
-    /// down (and the absolute reading negative), 0xFF drives it up — verified
-    /// on hardware 2026-08-21 (§9), once a landscape stream made tilt respond
-    /// at all.
-    var tilt: GimbalDirection {
-        switch self {
-        case .up: .negative
-        case .down: .positive
-        case .left, .right: .stop
-        }
-    }
-}
-
 /// State behind every camera control on the Dashboard. Shares the app's one
 /// `UVCTransport` with the preset panes and mirrors the viewfinder's Link
 /// discovery (via `track(_:)`) instead of duplicating USB discovery: when
@@ -71,18 +42,16 @@ final class CameraControlsModel {
 
     // MARK: Gimbal
 
-    /// App-local speed scale (never written to the camera by itself); the
-    /// per-axis speeds below scale it into the verified caps (pan 0–30,
-    /// tilt 0–20, §4) at the moment a drive starts.
-    var gimbalSpeed = 0.5
+    /// The persisted per-axis ceilings, scaled into the verified caps (pan
+    /// 0–30, tilt 0–20, §4). Read straight from UserDefaults rather than
+    /// stored here, because the control bar and the Settings pane both write
+    /// the same keys and neither owns the value.
+    var gimbalSpeedCaps: GimbalSpeedCaps { .persisted() }
 
-    var panSpeed: Int {
-        max(1, Int((gimbalSpeed * Double(UVCTransport.maxPanSpeed)).rounded()))
-    }
-
-    var tiltSpeed: Int {
-        max(1, Int((gimbalSpeed * Double(UVCTransport.maxTiltSpeed)).rounded()))
-    }
+    /// The speed bytes those ceilings come to — what the control bar shows,
+    /// because these are the bytes that reach the camera.
+    var panSpeed: Int { Int(gimbalSpeedCaps.panCeiling) }
+    var tiltSpeed: Int { Int(gimbalSpeedCaps.tiltCeiling) }
 
     // MARK: Zoom (displayed as a factor; CT_ZOOM_ABSOLUTE carries 100...400)
 
@@ -170,6 +139,16 @@ final class CameraControlsModel {
 
     @ObservationIgnored private let transport: UVCTransport
     @ObservationIgnored private let writeQueue = ControlWriteQueue()
+    /// Speed ceilings captured when a drive starts, so a slider moved
+    /// mid-drag cannot change the speed under the user's hand.
+    @ObservationIgnored private var driveCaps = GimbalSpeedCaps.persisted()
+    @ObservationIgnored private var driveLimiter = GimbalDriveLimiter()
+    /// Who holds the head. Not observable: it changes on every drive
+    /// submission, and a SwiftUI invalidation per mouse-move during a drag
+    /// would be a poor trade for state no view reads.
+    @ObservationIgnored private var driveOwnership = GimbalDriveOwnership()
+    @ObservationIgnored private var pendingDrive: GimbalDrive?
+    @ObservationIgnored private var pendingDriveTask: Task<Void, Never>?
     @ObservationIgnored private var refreshGeneration = 0
     @ObservationIgnored private var isTracking = false
     /// The viewfinder owns the capture session, which is what actually sets
@@ -240,6 +219,11 @@ final class CameraControlsModel {
             } catch {
                 guard generation == refreshGeneration else { return }
                 isReady = false
+                // The bar disables on isReady, which can interrupt a gesture
+                // without delivering its release; let go of the hold here too
+                // rather than trusting that it arrives.
+                driveOwnership.abandon()
+                abandonPendingDrive()
                 statusMessage = "Could not read camera controls: \(error)"
             }
         }
@@ -249,6 +233,11 @@ final class CameraControlsModel {
         refreshGeneration += 1
         isReady = false
         statusMessage = nil
+        // Nobody is driving a camera that is not there. A stale owner left
+        // behind would refuse the next stop from everybody else, and a stale
+        // hold would lock the API out of the gimbal entirely.
+        driveOwnership.abandon()
+        abandonPendingDrive()
         writeQueue.cancelAll()
         let transport = transport
         Task { await transport.disconnect() }
@@ -256,27 +245,187 @@ final class CameraControlsModel {
 
     // MARK: Gimbal drive
 
-    /// Starts a relative pan/tilt drive; the camera keeps moving until the
-    /// matching `endGimbalDrive()`. The write queue is FIFO per key, so the
-    /// stop is guaranteed to land after the drive it ends (and a stop that is
-    /// still pending when the pad is pressed again is simply replaced).
-    func beginGimbalDrive(_ direction: GimbalPadDirection) {
-        let panSpeed = UInt8(self.panSpeed)
-        let tiltSpeed = UInt8(self.tiltSpeed)
-        send("gimbal") { transport in
-            try await transport.driveGimbal(pan: direction.pan, panSpeed: panSpeed,
-                                            tilt: direction.tilt, tiltSpeed: tiltSpeed)
-        }
+    /// Starts a pad drive at the ceiling — the pad has no analog range. The
+    /// camera keeps moving until the matching `endGimbalDrive(owner:)`. The
+    /// write queue is FIFO per key, so the stop is guaranteed to land after
+    /// the drive it ends (and a drive still pending when the stop is queued is
+    /// simply replaced by it, so the camera never sees a drive it will not be
+    /// told to stop).
+    /// Marked `@discardableResult` for the Dashboard's sake: a Dashboard claim
+    /// cannot be refused, so its two call sites would only be writing `_ =`.
+    /// Every other caller must read it — a client told "fine" when nothing
+    /// moved is worse off than one told why.
+    @discardableResult
+    func beginGimbalDrive(_ direction: GimbalPadDirection,
+                          owner: GimbalDriveOwner) -> GimbalDriveResult {
+        driveCaps = .persisted()
+        return submitGimbalDrive(GimbalDrive(pad: direction, caps: driveCaps), owner: owner)
     }
 
-    /// Bypasses the ready gate: a stop must go out even if the connection
-    /// state flipped mid-hold.
-    func endGimbalDrive() {
+    /// Grabs the joystick puck. Captures the ceilings for the whole drag, the
+    /// way a pad press captures them for the whole hold.
+    ///
+    /// Takes no owner because it commands nothing: the head is claimed by the
+    /// first `updateJoystickDrive`, which the gesture delivers in the same
+    /// mouse-down. Claiming here instead would take the head without moving
+    /// it, which would refuse the previous owner's dead-man while its drive
+    /// was still running — the exact hole ownership exists to close.
+    ///
+    /// It does mark the hold, though, and that is the point of it existing at
+    /// all: from the instant the puck is grabbed the API is refused, so there
+    /// is no window in which a script can take a head the user is holding.
+    func beginJoystickDrive() {
+        driveCaps = .persisted()
+        driveOwnership.beginDashboardHold()
+    }
+
+    /// The puck moved: `offset` is its displacement from the center of the
+    /// well and `radius` the travel the well allows, which together give both
+    /// direction and speed. Rate-limited — see `submitGimbalDrive`.
+    func updateJoystickDrive(offset: CGSize, radius: CGFloat, owner: GimbalDriveOwner) {
+        // The result is dropped rather than returned: this is the Dashboard's
+        // path — its geometry is in view points — and a Dashboard claim is
+        // never refused.
+        _ = submitGimbalDrive(GimbalJoystick.drive(offset: offset, radius: radius,
+                                                   caps: driveCaps,
+                                                   allowsTilt: !streamsPortrait),
+                              owner: owner)
+    }
+
+    /// Stops the drive `owner` started — and only that one.
+    ///
+    /// Refused outright when somebody else holds the head, which is the whole
+    /// point: an API client's dead-man timer expiring must not end a move the
+    /// user is making with their hand on the control, and a Dashboard release
+    /// must not end a move the API has since taken over. A refused stop is a
+    /// *complete* no-op: it must not touch the pending drive or the limiter,
+    /// because both of those now belong to whoever does hold the head.
+    ///
+    /// The owner is not defaulted. A default on a safety-relevant parameter is
+    /// a silent claim, and the next call site to be written would inherit it
+    /// without anyone deciding — which is precisely how this class of bug got
+    /// here in the first place.
+    ///
+    /// An allowed stop bypasses the ready gate: it must go out even if the
+    /// connection state flipped mid-hold. It bypasses the limiter for the same
+    /// reason — never held back by the throttle interval, never dropped as a
+    /// duplicate — and discards any drive still waiting for its turn rather
+    /// than letting it land afterwards.
+    /// Returns whether the stop reached the camera, which callers should bind
+    /// to a name that says what the answer means — `let stoppedTheHead = …`.
+    /// `false` is **"somebody else holds the head"**, not "the stop failed":
+    /// nothing went wrong, there is nothing to retry, and this owner's drive
+    /// is over either way. What it does mean is that the head may still be
+    /// moving under the other owner's command, which is the one thing a
+    /// client must not be told incorrectly — answering an unconditional
+    /// success beside a camera that is still panning is the same bug as a
+    /// drive that reports success and moves nothing.
+    ///
+    /// `@discardableResult` for the Dashboard's sake, as with
+    /// `beginGimbalDrive`: its release has nothing to do about the answer
+    /// either way. Even in the one case where a Dashboard release is refused
+    /// — the puck was grabbed but never moved before the well vanished, so it
+    /// never took the head — the move belongs to the other owner and is
+    /// theirs to stop. Every other caller must read it.
+    @discardableResult
+    func endGimbalDrive(owner: GimbalDriveOwner) -> Bool {
+        // `release` lets go of the hold before it decides about the stop, and
+        // that order is the safety property — see GimbalDriveOwnership.
+        guard driveOwnership.release(from: owner) else { return false }
+        abandonPendingDrive()
         send("gimbal", requiresReady: false) { try await $0.stopGimbal() }
+        return true
     }
 
-    func centerGimbal() {
+    /// Sends the head home.
+    ///
+    /// A center moves the head, so it goes through the same door a drive does:
+    /// refused while somebody has a Dashboard control physically down, because
+    /// a script swinging the head home under a held pad is exactly what the
+    /// priority rule exists to prevent, arriving by a different route. The
+    /// Dashboard's own center is never refused, structurally — see
+    /// `GimbalDriveOwnership.allowsOverride(by:)`.
+    ///
+    /// An accepted center takes the head and gives it straight back: it
+    /// overrides whatever was running and ends in its own stop (§7), so it
+    /// leaves the head held by nobody and the loser's later stop is harmlessly
+    /// let through. A refused one changes nothing whatsoever — it must not
+    /// touch the ownership or the hold belonging to the person it was just
+    /// refused against.
+    @discardableResult
+    func centerGimbal(owner: GimbalDriveOwner) -> GimbalDriveResult {
+        guard isReady else { return .refusedCameraNotReady }
+        guard driveOwnership.recenter(by: owner) else { return .refusedControlHeld }
+        abandonPendingDrive()
         send("gimbal") { try await $0.centerGimbal() }
+        return .accepted
+    }
+
+    /// Puts a drive on the wire at no more than ~10 Hz, and not at all when
+    /// the camera already holds that exact payload. An update that arrives too
+    /// soon is held and flushed when the interval is up rather than dropped:
+    /// the user can stop moving the mouse at any moment, and the head keeps
+    /// doing whatever was last sent.
+    /// `.accepted` means the model has taken responsibility for the movement,
+    /// not that a transfer went out: an accepted drive the camera is already
+    /// performing is skipped by the limiter, which is the whole point of it.
+    private func submitGimbalDrive(_ drive: GimbalDrive,
+                                   owner: GimbalDriveOwner) -> GimbalDriveResult {
+        // The hold tracks the pointer, not the camera: a control that is down
+        // is down whether or not the camera is answering, and the release path
+        // is what lets go of it.
+        if owner == .dashboard { driveOwnership.beginDashboardHold() }
+        // Ahead of the claim so that a request refused for want of a camera
+        // changes nothing at all. `send` would drop it anyway; returning here
+        // makes that visible instead of silent, and keeps the limiter from
+        // recording a payload the camera never received.
+        guard isReady else { return .refusedCameraNotReady }
+        // The claim lands before the limiter, not after. Taking the head is
+        // not conditional on the payload being worth a transfer — two owners
+        // asking for the same movement is exactly when the limiter skips the
+        // send, and ownership still has to move, or the loser's dead-man would
+        // stop a drive the winner is now responsible for.
+        guard driveOwnership.claim(owner) else { return .refusedControlHeld }
+        pendingDrive = drive
+        flushPendingDrive()
+        return .accepted
+    }
+
+    /// Drops a drive that has not gone out yet and forgets what the camera was
+    /// last told. Everything that ends a move funnels through here.
+    private func abandonPendingDrive() {
+        pendingDrive = nil
+        pendingDriveTask?.cancel()
+        pendingDriveTask = nil
+        driveLimiter.reset()
+    }
+
+    private func flushPendingDrive() {
+        guard let drive = pendingDrive else { return }
+        let now = ContinuousClock.now
+        switch driveLimiter.decision(for: drive, at: now) {
+        case .skip:
+            pendingDrive = nil
+        case .send:
+            pendingDrive = nil
+            pendingDriveTask?.cancel()
+            pendingDriveTask = nil
+            driveLimiter.markSent(drive, at: now)
+            send("gimbal") {
+                try await $0.driveGimbal(pan: drive.pan, panSpeed: drive.panSpeed,
+                                         tilt: drive.tilt, tiltSpeed: drive.tiltSpeed)
+            }
+        case .wait(let remaining):
+            // One timer is enough: it flushes whatever is pending when it
+            // fires, which is by then the newest update.
+            guard pendingDriveTask == nil else { return }
+            pendingDriveTask = Task { [weak self] in
+                try? await Task.sleep(for: remaining)
+                guard !Task.isCancelled, let self else { return }
+                pendingDriveTask = nil
+                flushPendingDrive()
+            }
+        }
     }
 
     // MARK: Zoom
@@ -445,6 +594,24 @@ final class CameraControlsModel {
         if requiresReady && !isReady { return }
         let transport = transport
         writeQueue.submit(key) { try await operation(transport) }
+    }
+}
+
+extension GimbalSpeedCaps {
+    /// The ceilings as the user left them. `Preferences.registerDefaults()`
+    /// puts a value behind both keys at launch; the fallback covers the two
+    /// callers that never run it — SwiftUI previews and the Checks binaries —
+    /// where a missing key would otherwise read as 0 and crawl at speed 1.
+    static func persisted(_ defaults: UserDefaults = .standard) -> GimbalSpeedCaps {
+        GimbalSpeedCaps(pan: fraction(defaults, Preferences.gimbalPanSpeed),
+                        tilt: fraction(defaults, Preferences.gimbalTiltSpeed),
+                        maxPanSpeed: UVCTransport.maxPanSpeed,
+                        maxTiltSpeed: UVCTransport.maxTiltSpeed)
+    }
+
+    private static func fraction(_ defaults: UserDefaults, _ key: String) -> Double {
+        let stored = defaults.double(forKey: key)
+        return stored > 0 ? min(stored, 1) : 0.5
     }
 }
 

@@ -3,9 +3,7 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.1.0] — 2026-08-25
-
-First release.
+## [Unreleased]
 
 ### Changed
 - Local builds sign with the Developer ID identity instead of ad hoc. macOS
@@ -99,9 +97,7 @@ First release.
   A Settings section covers the three panes, and the Presets section documents
   the export/import file format, what import validates before touching the
   store, and the merge rule for an imported "Apply on Connect" mark — it never
-  displaces one you set, but it fills an empty slot. `docs/images/settings.png`
-  is captured from a real build; the login-item toggle photographs in whatever
-  state the machine is actually in, rather than being switched on for the shot.
+  displaces one you set, but it fills an empty slot.
 - App icon. The mark is two arcs on the same profile as the reference ring (inner/outer
   diameter 0.75, arc width 12.5% of the outer diameter), blended where they meet and
   wrapped in one continuous outline whose straight segment reads as the stem of a B.

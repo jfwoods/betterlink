@@ -41,7 +41,11 @@ struct PresetMenuView: View {
                 HStack(spacing: 6) {
                     Text(preset.name).font(.headline)
                     if preset.isDefault {
-                        Label("On connect", systemImage: "star.fill")
+                        // Drawn as a bolt, not a star: the star now means
+                        // "favorite" one control to the right, and one glyph
+                        // cannot mean two things in the same row. Orange is
+                        // kept so the colour association survives the change.
+                        Label("On connect", systemImage: "bolt.fill")
                             .font(.caption)
                             .foregroundStyle(.orange)
                     }
@@ -51,6 +55,7 @@ struct PresetMenuView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            favoriteToggle(preset)
             Button {
                 Task { await model.apply(preset) }
             } label: {
@@ -69,6 +74,24 @@ struct PresetMenuView: View {
         }
         .padding(.vertical, 4)
         .contextMenu { menuItems(preset) }
+    }
+
+    /// Promotes a preset to the Dashboard's favorites row. Not gated on
+    /// `model.isBusy` like Apply is — starring only writes presets.json and
+    /// never touches the camera, so there is nothing to wait for.
+    private func favoriteToggle(_ preset: Preset) -> some View {
+        Button {
+            model.store.toggleFavorite(preset.id)
+        } label: {
+            Image(systemName: preset.isFavorite ? "star.fill" : "star")
+                .foregroundStyle(preset.isFavorite ? Color.yellow : Color.secondary)
+        }
+        .buttonStyle(.borderless)
+        .help(preset.isFavorite
+              ? "Remove from the Dashboard's favorites"
+              : "Show on the Dashboard's favorites row")
+        .accessibilityLabel("Favorite")
+        .accessibilityValue(preset.isFavorite ? "On" : "Off")
     }
 
     @ViewBuilder

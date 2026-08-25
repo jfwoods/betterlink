@@ -149,7 +149,7 @@ struct ContentView: View {
         } detail: {
             switch selection ?? .dashboard {
             case .dashboard:
-                DashboardView(viewfinder: viewfinder, controls: cameraControls)
+                DashboardView(viewfinder: viewfinder, controls: cameraControls, presets: presets)
             case .presetMenu:
                 PresetMenuView(model: presets)
             case .presetBuilder:
