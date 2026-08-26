@@ -24,9 +24,14 @@ with the controls arranged around it.
 - **Live viewfinder.** The Link is found automatically by USB VID `0x2E1A` /
   PID `0x4C01`, falling back to any external camera. Connect and disconnect are
   handled while the app runs — no relaunch.
-- **Gimbal control.** A press-and-hold pan/tilt pad with a guaranteed stop on
-  release, a center button, and a speed slider scaled into the camera's pan
-  0–30 / tilt 0–20 range.
+- **Gimbal control.** A virtual joystick: drag the puck and the head follows,
+  direction and speed in one gesture, stopping the moment you let go. A
+  segmented control switches to the older press-and-hold pad when a single
+  precise nudge is easier to aim than a stick. Pan and tilt speeds are capped
+  independently — or linked, if you prefer one slider — scaled into the
+  camera's pan 0–30 / tilt 0–20 range. Measured, those ceilings top out at
+  65°/s of pan and 41°/s of tilt, and the response is linear, so half a push is
+  half the speed.
 - **Zoom.** 1.0×–4.0×, from the slider or by scrolling over the live preview.
 - **Image adjustments.** Brightness, contrast, saturation, sharpness, hue,
   white balance (auto or 2000–10000 K), focus (auto or manual), roll, and
@@ -39,6 +44,12 @@ with the controls arranged around it.
   finishes. Audio prefers the Link's own microphone.
 - **Presets.** One named snapshot of position, zoom, and every image parameter,
   re-applied in a click — and exportable, so a set of shots moves to another Mac.
+  Star the ones you actually switch between and they appear in a row on the
+  Dashboard, one click from the shot.
+- **Local REST API.** An optional HTTP interface on `127.0.0.1`, so a Stream
+  Deck or a shell script can recall presets, move the head, zoom, adjust the
+  image and drive recording without touching the window. Off by default, bearer
+  token always. See [`docs/API.md`](docs/API.md).
 - **Automatic updates** through Sparkle, signed and notarized by the release
   pipeline.
 
@@ -81,7 +92,7 @@ one, and the summary tells you when that happened.
 ![The Settings pane: General, Presets, and Updates](docs/images/settings.png)
 
 Settings is a sidebar pane rather than a separate window — there is no ⌘,
-shortcut. Three sections:
+shortcut. Five sections:
 
 **General.** "Open Betterlink at Login" reads the live `SMAppService`
 registration instead of a stored preference, so it shows what macOS actually has
@@ -92,7 +103,15 @@ Mac behavior — and turning it off makes the app always start on the Dashboard.
 The last-used pane is recorded on every navigation whether or not the preference
 is on, so switching it on later has something real to restore.
 
+**Gimbal.** Which control the Dashboard shows — Joystick or D-Pad — and the
+pan and tilt speed ceilings, with a toggle that links the two sliders. These are
+the same preferences the control bar edits, so the two surfaces never disagree.
+
 **Presets.** A saved-preset count, and the export/import described above.
+
+**API.** Enables the REST API, sets its port, and chooses between loopback-only
+and local-network access. Enabling it mints a bearer token in the Keychain, with
+Copy and Regenerate buttons. Full reference in [`docs/API.md`](docs/API.md).
 
 **Updates.** An automatic-check toggle, an Hourly / Daily / Weekly frequency
 picker, "Check for Updates Now" (which works whether or not automatic checks are
@@ -188,6 +207,7 @@ Honest list of what this does not do yet:
 
 ## Project documents
 
+- [`docs/API.md`](docs/API.md) — the REST API reference
 - [`CHANGELOG.md`](CHANGELOG.md) — what changed, and why
 - [`ROADMAP.md`](ROADMAP.md) — phases, scope decisions, and hardware-verification debts
 - [`specifications.md`](specifications.md) — the original requirements
