@@ -120,5 +120,60 @@ control style all stop it normally — this only affects an abnormal exit.</p>]]
             type="application/octet-stream"
             sparkle:edSignature="mAsKpiav8XpdGN2u9wL19e5jJ/jcvcei+wr9SYc+UCtHU2Gn23LKNziFaOxPx4A8eA0N4x79ibyjtSQl+kAcCA==" />
     </item>
+            <item>
+        <title>Version 0.3.0</title>
+        <description><![CDATA[<p>Betterlink 0.3.0 adds a local REST API, so a Stream Deck — or a shell script,<br>
+or anything else on your Mac — can drive the camera without touching the<br>
+window.</p>
+<h2>The API</h2>
+<p>Off by default. Turn it on in <strong>Settings → API</strong>, which mints a bearer token<br>
+into the Keychain and gives you Copy and Regenerate buttons. It listens on<br>
+<code class="notranslate">127.0.0.1:8787</code> unless you tell it otherwise; with local-network access off,<br>
+the port is genuinely unreachable from any other machine.</p>
+<p>What it can do: recall presets, move and center the head, zoom, read and set<br>
+every image control, and start and stop recording. <code class="notranslate">GET /status</code> returns the<br>
+whole picture in one call — camera state, position, zoom, controls, video mode,<br>
+recording.</p>
+<p>A Stream Deck button is one <code class="notranslate">curl</code>:</p>
+<div class="highlight highlight-source-shell"><pre class="notranslate">curl -sS -X POST -H <span class="pl-s"><span class="pl-pds">"</span>Authorization: Bearer <span class="pl-smi">$TOKEN</span><span class="pl-pds">"</span></span> -H <span class="pl-s"><span class="pl-pds">"</span>Content-Type: application/json<span class="pl-pds">"</span></span> \
+     -d <span class="pl-s"><span class="pl-pds">'</span>{"direction":"left","durationMs":400}<span class="pl-pds">'</span></span> \
+     http://127.0.0.1:8787/gimbal/drive</pre></div>
+<p>Full reference, including every error code, is in<br>
+<a href="https://github.com/jfwoods/betterlink/blob/main/docs/API.md"><code class="notranslate">docs/API.md</code></a>.</p>
+<p><strong>The Dashboard wins.</strong> While your hand is on the on-screen joystick or pad,<br>
+the API cannot take the head from you — a drive, stop or center is refused with<br>
+<code class="notranslate">409 gimbal_control_held</code>. A hand on the control is a deliberate act. The<br>
+reverse is not true: you can always take the head back from a script.</p>
+<p><strong>A drive that is never stopped stops itself.</strong> Every gimbal drive carries a<br>
+dead man's handle, so a client that crashes mid-move cannot leave the head<br>
+running forever. Send <code class="notranslate">durationMs</code> if you want a fixed nudge.</p>
+<p>Authentication happens before routing, so an unauthenticated caller gets <code class="notranslate">401</code><br>
+for every path — including ones that do not exist — and cannot map the API by<br>
+probing it. Requests carrying an <code class="notranslate">Origin</code> header are refused outright and no<br>
+CORS headers are ever sent: this is for local tools, not web pages.</p>
+<h2>Also in this release</h2>
+<p>Two bugs found by running the API against the camera rather than by testing it<br>
+in isolation:</p>
+<ul>
+<li>Every numeric field rejected the values 0 and 1. Among them <code class="notranslate">{"factor": 1}</code>,<br>
+and 1 is the minimum zoom — so zooming back out was impossible over the API.</li>
+<li>A stop sent while a recording was still starting was dropped, and the API<br>
+said nothing was running while the recording came up behind it and ran on.<br>
+A record/stop double-tap now does what you meant.</li>
+</ul>
+<h2>Documentation</h2>
+<p>The README had fallen behind: it still described the gimbal as a press-and-hold<br>
+pad with one speed slider. It now covers the joystick, the per-axis speed<br>
+ceilings and the favorites row that shipped in 0.2.0, alongside the new API.</p>]]></description>
+        <pubDate>Wed, 26 Aug 2026 01:55:05 +0000</pubDate>
+        <sparkle:version>1787709154</sparkle:version>
+        <sparkle:shortVersionString>0.3.0</sparkle:shortVersionString>
+        <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+        <enclosure
+            url="https://github.com/jfwoods/betterlink/releases/download/v0.3.0/Betterlink-0.3.0.dmg"
+            length="2307764"
+            type="application/octet-stream"
+            sparkle:edSignature="9Anuty36FgCTNKnd5n5izWErgdqYoBKalVNr5rqyW6Q26CQN504V8O8EK+SQJkiD6AIxtEvUApOVCS+a5zH9DA==" />
+    </item>
         </channel>
 </rss>
