@@ -175,5 +175,31 @@ ceilings and the favorites row that shipped in 0.2.0, alongside the new API.</p>
             type="application/octet-stream"
             sparkle:edSignature="9Anuty36FgCTNKnd5n5izWErgdqYoBKalVNr5rqyW6Q26CQN504V8O8EK+SQJkiD6AIxtEvUApOVCS+a5zH9DA==" />
     </item>
+            <item>
+        <title>Version 0.3.1</title>
+        <description><![CDATA[<p>Betterlink 0.3.1 fixes a crash on macOS 27.</p>
+<h2>Fixed</h2>
+<p>On macOS 27, Betterlink quit a few seconds after launch — usually before its<br>
+window appeared — whenever it opened on the Dashboard. The camera control bar<br>
+under the viewfinder and the camera adjustments inspector were competing for<br>
+the same width, and macOS 27 kept re-running layout until it gave up and<br>
+terminated the app. Earlier macOS releases tolerated the same layout, so this<br>
+only appeared after updating.</p>
+<p>The control bar now scrolls horizontally when the window is too narrow for it,<br>
+the same way the favorites strip does, instead of forcing a minimum width on<br>
+the window. At normal window sizes it looks exactly as before.</p>
+<p>If 0.3.0 is crashing for you, the in-app updater may not stay open long enough<br>
+to install this release: download the DMG below and drag Betterlink to<br>
+Applications.</p>]]></description>
+        <pubDate>Thu, 24 Sep 2026 17:41:08 +0000</pubDate>
+        <sparkle:version>1790271512</sparkle:version>
+        <sparkle:shortVersionString>0.3.1</sparkle:shortVersionString>
+        <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+        <enclosure
+            url="https://github.com/jfwoods/betterlink/releases/download/v0.3.1/Betterlink-0.3.1.dmg"
+            length="2303048"
+            type="application/octet-stream"
+            sparkle:edSignature="g5eZvaQfECzo6++o4tBlWz/l3p485gSOKuo+c2lpbsDw+Z7Gx5PKD+8Ppt6qR5rYlMGIpHrVHLoV/a72e/J7DQ==" />
+    </item>
         </channel>
 </rss>
