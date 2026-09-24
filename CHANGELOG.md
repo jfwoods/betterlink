@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.1] — 2026-09-24
+
+### Fixed
+- On macOS 27 the app crashed a few seconds after launch whenever it opened on the
+  Dashboard, before its window ever appeared. AppKit threw "the window has been marked
+  as needing another Update Constraints in Window pass, but it has already had more
+  Update Constraints in Window passes than there are views in the window" — a layout
+  loop. The camera control bar is built from fixed-width pieces, so its intrinsic width
+  acted as a hard minimum on the detail column, and the trailing inspector's width
+  range competed for the same space; once the camera connected, the two never settled.
+  Removing either one stopped the crash, and neither had changed since 0.2.0 — earlier
+  macOS releases tolerated the layout and macOS 27 does not. The control bar now sits
+  in a horizontal scroll view, as the favorites strip already did, so its width no
+  longer constrains the split view. In a window too narrow for it, the bar scrolls
+  rather than squeezing.
+
 ## [0.3.0] — 2026-08-25
 
 ### Added

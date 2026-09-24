@@ -23,7 +23,24 @@ struct CameraControlBar: View {
         LinkedGimbalSpeeds(pan: $panSpeedCap, tilt: $tiltSpeedCap, linked: $speedsLinked)
     }
 
+    /// The ScrollView is load-bearing, not cosmetic. The strip is built from
+    /// fixed-width pieces, and laid out bare its intrinsic width became a hard
+    /// minimum on the detail column that the Dashboard's inspector fought over.
+    /// On macOS 27 that fight never settles: AppKit re-runs constraint passes
+    /// until it throws, and the app crashed seconds after launch on the
+    /// Dashboard. Scrolled, the strip can be any width the split view hands
+    /// it. The vertical fixedSize keeps the ScrollView from claiming height
+    /// from the viewfinder, as in FavoritesBar.
     var body: some View {
+        ScrollView(.horizontal) { content }
+            .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity)
+            .background(.bar)
+            .disabled(!model.isReady)
+    }
+
+    private var content: some View {
         HStack(alignment: .center, spacing: 20) {
             gimbalControls
             Divider()
@@ -36,9 +53,6 @@ struct CameraControlBar: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
-        .frame(maxWidth: .infinity)
-        .background(.bar)
-        .disabled(!model.isReady)
     }
 
     /// The joystick is the default because it is analog; the pad stays for the
